@@ -57,6 +57,11 @@ def cidr_to_netmask(cidr)
   IPAddr.new('255.255.255.255').mask(cidr).to_s
 end
 
+def interface_type(mac, token)
+  uri = URI("http://169.254.169.254/latest/meta-data/network/interfaces/macs/#{mac}/interface-type")
+  get_metadata_with_token(token, uri)
+end
+
 # generate the token for retrieving IMDSv2 metadata
 token = get_metadata_token
 macs = network_interface_macs(token)
@@ -83,6 +88,10 @@ if macs.length > 1
     netmask = cidr_to_netmask(cidr_prefix_length)
     cidr_block = subnet_cidr_block(mac, token)
     log "network_card_index: #{network_card_index}, device_name: #{device_name}, device_ip_address: #{device_ip_address}"
+
+    # Skip efa-only interfaces as they do not support IP networking
+    interface_type_val = interface_type(mac, token)
+    next if interface_type_val == "efa-only"
 
     execute 'configure_nw_interface' do
       user 'root'
